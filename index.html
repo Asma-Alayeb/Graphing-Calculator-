@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GRAPH 85 Style Graphing Calculator</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#f7f4fb;font-family:Arial,Helvetica,sans-serif;color:#222}
+  .calc-wrap{max-width:720px;margin:20px auto;padding:12px}
+  .calculator{background:#242424;border-radius:18px;padding:18px 18px 22px;box-shadow:0 8px 25px rgba(0,0,0,.25)}
+  .brand{color:#eee;font-weight:bold;font-size:18px;margin:0 0 10px 5px;letter-spacing:.5px}
+  .screen{background:#d9e3c5;border:8px solid #111;border-radius:8px;padding:8px;margin-bottom:14px}
+  #display{width:100%;height:210px;display:block;background:#d9e3c5}
+  .status{font:12px Arial;margin-top:4px;color:#26351d}
+  .keypad{display:grid;grid-template-columns:repeat(6,1fr);gap:7px}
+  button{border:0;border-radius:7px;min-height:42px;font-weight:bold;font-size:13px;cursor:pointer;box-shadow:inset 0 -2px 0 rgba(0,0,0,.25)}
+  button:active{transform:translateY(1px);box-shadow:none}
+  .key{background:#eee;color:#111}
+  .dark{background:#555;color:white}
+  .orange{background:#c69214;color:white}
+  .blue{background:#416b9d;color:white}
+  .wide{grid-column:span 2}
+  .help{background:white;border-radius:10px;padding:14px;margin-top:14px;font-size:14px;line-height:1.5}
+  .help b{color:#5b2c83}
+  .controls{display:flex;gap:7px;margin:0 0 8px}
+  .controls button{min-height:34px;flex:1}
+  @media(max-width:520px){.keypad{grid-template-columns:repeat(4,1fr)}.wide{grid-column:span 2}#display{height:190px}}
+</style>
+</head>
+<body>
+<div class="calc-wrap">
+  <div class="calculator">
+    <div class="brand">CASIO GRAPH 85 — Web Graphing Calculator</div>
+    <div class="screen">
+      <canvas id="display" width="660" height="210" aria-label="calculator screen"></canvas>
+      <div class="status" id="status">GRAPH mode • Y1 ready</div>
+    </div>
+
+    <div class="controls">
+      <button class="dark" onclick="setMode('GRAPH')">GRAPH</button>
+      <button class="dark" onclick="setMode('TABLE')">TABLE</button>
+      <button class="dark" onclick="setMode('CALC')">CALC</button>
+      <button class="orange" onclick="clearAll()">AC</button>
+    </div>
+
+    <div class="keypad">
+      <button class="blue" onclick="insert('Y1=')">Y1=</button>
+      <button class="blue" onclick="insert('Y2=')">Y2=</button>
+      <button class="blue" onclick="insert('Y3=')">Y3=</button>
+      <button class="dark" onclick="insert('(')">(</button>
+      <button class="dark" onclick="insert(')')">)</button>
+      <button class="orange" onclick="backspace()">DEL</button>
+
+      <button class="dark" onclick="insert('sin(')">sin</button>
+      <button class="dark" onclick="insert('cos(')">cos</button>
+      <button class="dark" onclick="insert('tan(')">tan</button>
+      <button class="dark" onclick="insert('sqrt(')">√</button>
+      <button class="dark" onclick="insert('^')">xʸ</button>
+      <button class="dark" onclick="insert('π')">π</button>
+
+      <button class="key" onclick="insert('7')">7</button>
+      <button class="key" onclick="insert('8')">8</button>
+      <button class="key" onclick="insert('9')">9</button>
+      <button class="key" onclick="insert('/')">÷</button>
+      <button class="dark" onclick="insert('ln(')">ln</button>
+      <button class="dark" onclick="insert('log(')">log</button>
+
+      <button class="key" onclick="insert('4')">4</button>
+      <button class="key" onclick="insert('5')">5</button>
+      <button class="key" onclick="insert('6')">6</button>
+      <button class="key" onclick="insert('*')">×</button>
+      <button class="dark" onclick="insert('abs(')">abs</button>
+      <button class="dark" onclick="insert('e')">e</button>
+
+      <button class="key" onclick="insert('1')">1</button>
+      <button class="key" onclick="insert('2')">2</button>
+      <button class="key" onclick="insert('3')">3</button>
+      <button class="key" onclick="insert('-')">−</button>
+      <button class="dark" onclick="insert('Ans')">Ans</button>
+      <button class="orange" onclick="evaluateInput()">EXE</button>
+
+      <button class="key" onclick="insert('0')">0</button>
+      <button class="key" onclick="insert('.')">.</button>
+      <button class="key" onclick="insert(',')">,</button>
+      <button class="key" onclick="insert('+')">+</button>
+      <button class="blue" onclick="drawGraph()">DRAW</button>
+      <button class="blue" onclick="zoomFit()">V-Window</button>
+    </div>
+  </div>
+
+  <div class="help">
+    <b>Student use:</b> Enter a graph such as <code>Y1=x^2-4</code> or
+    <code>Y1=2x+3</code>, then press <b>EXE</b> or <b>DRAW</b>.
+    Use <b>V-Window</b> to reset the graph window. The calculator accepts
+    <code>sin</code>, <code>cos</code>, <code>tan</code>, <code>sqrt</code>,
+    <code>ln</code>, <code>log</code>, <code>abs</code>, powers, π, and e.
+    This is a browser recreation for instruction and practice; it is not the original
+    CASIO firmware.
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById('display'), ctx=canvas.getContext('2d');
+let mode='GRAPH', input='', ans=0;
+let xmin=-10,xmax=10,ymin=-10,ymax=10;
+let funcs={Y1:null,Y2:null,Y3:null};
+
+function setMode(m){mode=m; input=''; drawScreen();}
+function insert(s){
+  if(s==='Y1='||s==='Y2='||s==='Y3='){
+    input=s; drawScreen(); return;
+  }
+  input+=s; drawScreen();
+}
+function backspace(){input=input.slice(0,-1);drawScreen()}
+function clearAll(){input=''; funcs={Y1:null,Y2:null,Y3:null};ans=0;drawScreen()}
+function normalize(s){
+  s=s.replace(/Y[123]=/g,'').replace(/π/g,'Math.PI').replace(/\be\b/g,'Math.E');
+  s=s.replace(/\^/g,'**').replace(/sqrt\(/g,'Math.sqrt(')
+   .replace(/sin\(/g,'Math.sin(').replace(/cos\(/g,'Math.cos(')
+   .replace(/tan\(/g,'Math.tan(').replace(/ln\(/g,'Math.log(')
+   .replace(/log\(/g,'Math.log10(').replace(/abs\(/g,'Math.abs(')
+   .replace(/Ans/g,'ans');
+  s=s.replace(/(\d|x|\))(?=x|\()/g,'$1*');
+  s=s.replace(/x(?=\d)/g,'x*');
+  return s;
+}
+function evalExpr(expr,x=0){
+  const js=normalize(expr);
+  return Function('x','ans','return ('+js+')')(x,ans);
+}
+function evaluateInput(){
+  if(!input)return;
+  try{
+    const m=input.match(/^(Y[123])=(.*)$/i);
+    if(m){
+      funcs[m[1].toUpperCase()]=m[2];
+      drawGraph();
+    }else{
+      ans=evalExpr(input,0);
+      drawScreen('Ans = '+format(ans));
+    }
+  }catch(e){drawScreen('Syntax ERROR')}
+}
+function format(v){
+  if(!Number.isFinite(v))return 'Math ERROR';
+  return Math.abs(v)<1e-10? '0' : Number(v.toPrecision(10)).toString();
+}
+function xpix(x){return (x-xmin)/(xmax-xmin)*canvas.width}
+function ypix(y){return canvas.height-(y-ymin)/(ymax-ymin)*canvas.height}
+
+function drawScreen(message){
+  ctx.fillStyle='#d9e3c5';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.fillStyle='#26351d';ctx.font='bold 15px monospace';
+  ctx.fillText(mode+' MODE',10,22);
+  ctx.font='16px monospace';
+  ctx.fillText(input||'_',10,48);
+  if(message)ctx.fillText(message,10,76);
+  ctx.font='12px monospace';
+  ctx.fillText('Y1: '+(funcs.Y1||'—'),10,112);
+  ctx.fillText('Y2: '+(funcs.Y2||'—'),10,132);
+  ctx.fillText('Y3: '+(funcs.Y3||'—'),10,152);
+  ctx.fillText('Window: ['+xmin+', '+xmax+'] × ['+ymin+', '+ymax+']',10,180);
+}
+function drawGraph(){
+  ctx.fillStyle='#d9e3c5';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.strokeStyle='#94a184';ctx.lineWidth=1;
+  for(let x=Math.ceil(xmin);x<=xmax;x++){let px=xpix(x);ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,canvas.height);ctx.stroke()}
+  for(let y=Math.ceil(ymin);y<=ymax;y++){let py=ypix(y);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(canvas.width,py);ctx.stroke()}
+  ctx.strokeStyle='#26351d';ctx.lineWidth=2;
+  if(ymin<=0&&ymax>=0){let py=ypix(0);ctx.beginPath();ctx.moveTo(0,py);ctx.lineTo(canvas.width,py);ctx.stroke()}
+  if(xmin<=0&&xmax>=0){let px=xpix(0);ctx.beginPath();ctx.moveTo(px,0);ctx.lineTo(px,canvas.height);ctx.stroke()}
+  ctx.font='11px monospace';ctx.fillStyle='#26351d';
+  ctx.fillText('GRAPH',8,14);
+  ['Y1','Y2','Y3'].forEach((name,i)=>{
+    if(!funcs[name])return;
+    ctx.lineWidth=2;
+    ctx.strokeStyle=i===0?'#26351d':i===1?'#526f45':'#7b4f20';
+    let started=false;
+    ctx.beginPath();
+    for(let px=0;px<=canvas.width;px++){
+      const x=xmin+(px/canvas.width)*(xmax-xmin);
+      try{
+        const y=evalExpr(funcs[name],x);
+        if(!Number.isFinite(y)||Math.abs(y)>1e6){started=false;continue}
+        const py=ypix(y);
+        if(py<-1000||py>canvas.height+1000){started=false;continue}
+        if(!started){ctx.moveTo(px,py);started=true}else ctx.lineTo(px,py);
+      }catch(e){started=false}
+    }
+    ctx.stroke();
+  });
+  document.getElementById('status').textContent='GRAPH mode • DRAW complete';
+}
+function zoomFit(){xmin=-10;xmax=10;ymin=-10;ymax=10;drawGraph()}
+drawScreen();
+</script>
+</body>
+</html>
